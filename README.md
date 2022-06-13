@@ -10,7 +10,7 @@ Building: `cd docker ; docker build -t tiagoshibata/pcs3746 .`
 
 ## Running
 
-Clone this repository with `git clone --recursive https://github.com/tiagoshibata/pcs3746-sistemas-operacionais.git` to clone with submodules. The `./run.sh` script does most of the required work.
+Clone this repository with `git clone --recursive https://github.com/enzocardeal/pcs3746-sistemas-operacionais.git` to clone with submodules. The `./run.sh` script does most of the required work.
 
 If you need to customize the build:
 
