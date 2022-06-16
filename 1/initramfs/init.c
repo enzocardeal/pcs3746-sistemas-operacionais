@@ -7,13 +7,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "hello_world.h"
 
-#include "stack.h"
+#include "utils.h"
 
-#define len(_arr) ((int)((&_arr)[1] - _arr))
-
-static const char * const programs[] = { "/stack_push", "/stack_pop" };
+static const char * const programs[] = { "/child_program"};
 
 void panic(const char *msg)
 {
@@ -21,25 +18,13 @@ void panic(const char *msg)
 	exit(-1);
 }
 
-void mount_fs()
-{
-	printf("Mounting filesystems\n");
-	// If /sys is not created, make it read-only (mode = 444)
-	if (mkdir("/sys", 0x124) && errno != EEXIST)
-		panic("mkdir");
-	if (mount("none", "/sys", "sysfs", 0, ""))
-		panic("mount");
-}
-
 int main()
 {
-	printf("Custom initramfs - Hello World syscall:\n");
-	hello_world();
-	mount_fs();
+	init_semaphore();
 
-	printf("Forking to run %d programs\n", len(programs));
+	printf("Forking to run %d programs\n", 1);
 
-	for (int i = 0; i < len(programs); i++) {
+	for (int i = 0; i < 1; i++) {
 		const char *path = programs[i];
 		pid_t pid = fork();
 		if (pid == -1) {
@@ -51,8 +36,9 @@ int main()
 			panic("execl");
 		}
 	}
+	print_message("init");
 
-	int program_count = len(programs);
+	int program_count = 1;
 	while (program_count) {
 		int wstatus;
 		pid_t pid = wait(&wstatus);
@@ -64,9 +50,5 @@ int main()
 			continue;
 		program_count--;
 	}
-
-	printf("init finished\n");
-	for (;;)
-		sleep(1000);
 	return 0;
 }
