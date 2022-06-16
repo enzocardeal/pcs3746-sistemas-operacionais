@@ -7,13 +7,43 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "hello_world.h"
 
-#include "stack.h"
+static inline void dsb_sev(void)
+   {
+            __asm__ __volatile__ (
+            "dsb\n"
+            "sev\n"
+        );
+    }
 
-#define len(_arr) ((int)((&_arr)[1] - _arr))
+static inline void arch_spin_lock(int lock)
+{
+	unsigned long tmp;
+	__asm__ __volatile__(
+    "1:	ldrex	%0, [%1]\n"
+    "	teq	%0, #0\n"
+    "wfene\n"
+    "	strexeq	%0, %2, [%1]\n"
+    "	teqeq	%0, #0\n"
+    "	bne	1b"
+ 	: "=&r" (tmp)
+	: "r" (lock), "r" (1)
+	: "cc");
+	__asm__ __volatile__("": : :"memory");
+}
 
-static const char * const programs[] = { "/stack_push", "/stack_pop" };
+static inline void arch_spin_unlock(int lock)
+{
+    __asm__ __volatile__("": : :"memory");
+	__asm__ __volatile__(
+    "	str	%1, [%0]\n"
+	:
+	: "r" (lock), "r" (0)
+	: "cc");
+
+    dsb_sev();
+}
+
 
 void panic(const char *msg)
 {
@@ -21,52 +51,15 @@ void panic(const char *msg)
 	exit(-1);
 }
 
-void mount_fs()
-{
-	printf("Mounting filesystems\n");
-	// If /sys is not created, make it read-only (mode = 444)
-	if (mkdir("/sys", 0x124) && errno != EEXIST)
-		panic("mkdir");
-	if (mount("none", "/sys", "sysfs", 0, ""))
-		panic("mount");
-}
-
 int main()
 {
-	printf("Custom initramfs - Hello World syscall:\n");
-	hello_world();
-	mount_fs();
 
-	printf("Forking to run %d programs\n", len(programs));
-
-	for (int i = 0; i < len(programs); i++) {
-		const char *path = programs[i];
-		pid_t pid = fork();
-		if (pid == -1) {
-			panic("fork");
-		} else if (pid) {
-			printf("Starting %s (pid = %d)\n", path, pid);
-		} else {
-			execl(path, path, (char *)NULL);
-			panic("execl");
-		}
+	arch_spin_lock(1);
+	sleep(5);
+	arch_spin_unlock(1);
+	while(1){
+		printf("running");
+		sleep(5);
 	}
-
-	int program_count = len(programs);
-	while (program_count) {
-		int wstatus;
-		pid_t pid = wait(&wstatus);
-		if (WIFEXITED(wstatus))
-			printf("pid %d exited with %d\n", pid, WEXITSTATUS(wstatus));
-		else if (WIFSIGNALED(wstatus))
-			printf("pid %d killed by signal %d\n", pid, WTERMSIG(wstatus));
-		else
-			continue;
-		program_count--;
-	}
-
-	printf("init finished\n");
-	for (;;)
-		sleep(1000);
 	return 0;
 }
